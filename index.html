@@ -1,0 +1,1386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ColRegs - Lights and Signals</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f5f0e8;
+      --card-bg: #fffdf7;
+      --ink: #1a1208;
+      --accent: #c0392b;
+      --muted: #8a7a6a;
+      --border: #d4c9b5;
+      --shadow: rgba(60,40,10,0.12);
+      --green: #27ae60;
+      --orange: #e67e22;
+      --yellow: #f1c40f;
+      --red: #c0392b;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background-color: var(--bg);
+      background-image:
+        radial-gradient(circle at 20% 20%, rgba(192,57,43,0.06) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(192,57,43,0.04) 0%, transparent 50%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 2rem 1rem 4rem;
+      color: var(--ink);
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+    header h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1.8rem, 5vw, 2.6rem);
+      letter-spacing: -0.02em;
+    }
+    header p {
+      margin-top: 0.3rem;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 300;
+      letter-spacing: 0.04em;
+    }
+
+    /* ── Session stats bar ── */
+    .stats-bar {
+      display: flex;
+      gap: 1.5rem;
+      margin-bottom: 1.2rem;
+      font-size: 0.78rem;
+      letter-spacing: 0.05em;
+      font-weight: 500;
+    }
+    .stat { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    .stat-val { font-size: 1.2rem; font-family: 'Playfair Display', serif; }
+    .stat-lbl { color: var(--muted); text-transform: uppercase; font-size: 0.65rem; }
+    .stat.good  .stat-val { color: var(--green); }
+    .stat.again .stat-val { color: var(--red); }
+    .stat.total .stat-val { color: var(--ink); }
+
+    /* ── Progress bar ── */
+    .progress-wrap {
+      width: min(480px, 90vw);
+      height: 3px;
+      background: var(--border);
+      border-radius: 99px;
+      margin-bottom: 1.2rem;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 99px;
+      transition: width 0.4s ease;
+    }
+
+    /* ── Card ── */
+    .scene {
+      width: min(480px, 90vw);
+      height: 300px;
+      perspective: 1000px;
+      cursor: pointer;
+    }
+    .card {
+      width: 100%; height: 100%;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.65s cubic-bezier(0.4,0.2,0.2,1);
+    }
+    .card.flipped { transform: rotateY(180deg); }
+
+    .face {
+      position: absolute; inset: 0;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      border-radius: 16px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      box-shadow: 0 2px 4px var(--shadow), 0 8px 24px var(--shadow), 0 0 0 1px rgba(255,255,255,0.6) inset;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem 2rem;
+      overflow: hidden;
+    }
+    .face::before, .face::after {
+      content: ''; position: absolute;
+      width: 16px; height: 16px;
+      border-color: var(--accent); border-style: solid; opacity: 0.3;
+    }
+    .face::before { top: 12px; left: 12px; border-width: 2px 0 0 2px; }
+    .face::after  { bottom: 12px; right: 12px; border-width: 0 2px 2px 0; }
+
+    /* badge for "again" cards */
+    .again-badge {
+      position: absolute; top: 12px; right: 12px;
+      background: var(--red); color: #fff;
+      font-size: 0.6rem; font-weight: 600; letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 2px 7px; border-radius: 99px;
+      opacity: 0.85;
+    }
+
+    .face-front img {
+      max-width: 100%; max-height: 190px;
+      object-fit: contain; border-radius: 8px;
+    }
+    .face-front .placeholder {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 0.6rem; color: var(--muted);
+    }
+    .face-front .placeholder svg { opacity: 0.4; }
+    .face-front .placeholder span { font-size: 0.78rem; letter-spacing: 0.06em; }
+    .face-front .card-label {
+      margin-top: 0.75rem;
+      font-size: 0.72rem; font-weight: 500;
+      letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+    }
+
+    .face-back {
+      transform: rotateY(180deg);
+      text-align: center; gap: 0.4rem;
+    }
+    .face-back .answer {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1.1rem, 3vw, 1.55rem);
+      line-height: 1.45;
+    }
+    .face-back .hint {
+      font-size: 0.75rem; color: var(--muted);
+      letter-spacing: 0.05em; font-weight: 300;
+    }
+
+    /* ── Rating buttons (shown after flip) ── */
+    .rating-row {
+      display: flex; gap: 0.6rem;
+      width: min(480px, 90vw);
+      margin-top: 1rem;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    .rating-row.visible { opacity: 1; pointer-events: all; }
+
+    .rating-btn {
+      flex: 1; border: none; border-radius: 10px;
+      padding: 0.6rem 0.4rem;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.78rem; font-weight: 600;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      transition: transform 0.12s, filter 0.12s;
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
+    }
+    .rating-btn:hover { filter: brightness(1.08); transform: translateY(-2px); }
+    .rating-btn:active { transform: scale(0.96); }
+    .rating-btn small { font-weight: 300; font-size: 0.65rem; opacity: 0.8; }
+
+    .btn-again { background: #fdecea; color: var(--red); }
+    .btn-hard  { background: #fef3e2; color: var(--orange); }
+    .btn-good  { background: #eafaf1; color: var(--green); }
+    .btn-easy  { background: #e8f4fd; color: #2980b9; }
+
+    /* ── Nav controls ── */
+    .controls {
+      display: flex; align-items: center; gap: 1rem;
+      margin-top: 1.1rem;
+    }
+    .btn {
+      background: none; border: 1.5px solid var(--border); border-radius: 50px;
+      padding: 0.5rem 1.2rem;
+      font-family: 'DM Sans', sans-serif; font-size: 0.8rem;
+      font-weight: 500; letter-spacing: 0.05em; color: var(--ink);
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.1s;
+    }
+    .btn:hover { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+    .btn:active { transform: scale(0.97); }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn.primary:hover { background: #a93226; border-color: #a93226; color: #fff; }
+    .counter { font-size: 0.75rem; color: var(--muted); letter-spacing: 0.06em; min-width: 56px; text-align: center; }
+
+    /* ── Session complete banner ── */
+    .session-complete {
+      display: none;
+      flex-direction: column; align-items: center; gap: 1rem;
+      background: var(--card-bg); border: 1px solid var(--border);
+      border-radius: 16px; padding: 2.5rem 2rem;
+      width: min(480px, 90vw);
+      text-align: center;
+      box-shadow: 0 4px 20px var(--shadow);
+    }
+    .session-complete h2 { font-family: 'Playfair Display', serif; font-size: 1.6rem; }
+    .session-complete p { color: var(--muted); font-size: 0.85rem; line-height: 1.6; }
+    .session-complete .big-num { font-family: 'Playfair Display', serif; font-size: 2.8rem; color: var(--green); }
+
+    /* ── Edit toggle ── */
+    .edit-toggle {
+      margin-top: 2rem; font-size: 0.72rem; color: var(--muted);
+      background: none; border: none; cursor: pointer;
+      letter-spacing: 0.08em; text-decoration: underline;
+      text-underline-offset: 3px; font-family: inherit;
+      transition: color 0.2s;
+    }
+    .edit-toggle:hover { color: var(--ink); }
+
+    /* ── Editor panel ── */
+    .editor {
+      display: none; flex-direction: column; gap: 1rem;
+      width: min(480px, 90vw); margin-top: 1.2rem;
+      background: var(--card-bg); border: 1px solid var(--border);
+      border-radius: 12px; padding: 1.4rem;
+    }
+    .editor.open { display: flex; }
+    .editor h3 { font-family: 'Playfair Display', serif; font-size: 1rem; }
+
+    .editor label {
+      font-size: 0.72rem; font-weight: 500; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--muted);
+      margin-bottom: 0.2rem; display: block;
+    }
+    .editor input[type="text"], .editor textarea {
+      width: 100%; padding: 0.5rem 0.7rem;
+      border: 1px solid var(--border); border-radius: 8px;
+      font-family: 'DM Sans', sans-serif; font-size: 0.83rem;
+      background: var(--bg); color: var(--ink); outline: none;
+      transition: border-color 0.2s;
+    }
+    .editor input:focus, .editor textarea:focus { border-color: var(--accent); }
+    .editor textarea { resize: vertical; min-height: 70px; }
+
+    /* path hint */
+    .path-hint {
+      font-size: 0.7rem; color: var(--muted);
+      margin-top: 0.25rem; letter-spacing: 0.03em;
+      line-height: 1.5;
+    }
+    .path-hint code {
+      background: var(--border); border-radius: 3px;
+      padding: 1px 4px; font-size: 0.68rem;
+    }
+
+    .card-list {
+      display: flex; flex-direction: column; gap: 0.6rem;
+      max-height: 220px; overflow-y: auto;
+    }
+    .card-item {
+      display: flex; align-items: center; gap: 0.5rem;
+      padding: 0.5rem 0.7rem;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 8px; font-size: 0.8rem; cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .card-item:hover { border-color: var(--accent); }
+    .card-item.selected { border-color: var(--accent); background: rgba(192,57,43,0.05); }
+    .card-item .ci-img { font-size: 0.65rem; color: var(--muted); background: var(--border); border-radius: 4px; padding: 1px 5px; white-space: nowrap; }
+    .card-item span.ci-answer { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .card-item .ci-score {
+      font-size: 0.65rem; background: #eafaf1; color: var(--green);
+      border-radius: 4px; padding: 1px 5px; white-space: nowrap;
+    }
+    .card-item .ci-score.bad { background: #fdecea; color: var(--red); }
+    .card-item button.del { background:none; border:none; color:var(--muted); cursor:pointer; font-size:0.95rem; padding:0 2px; }
+    .card-item button.del:hover { color: var(--accent); }
+
+    .editor-row { display: flex; gap: 0.6rem; }
+    .editor-row .btn { flex: 1; }
+
+    /* reset stats */
+    .reset-link {
+      font-size: 0.7rem; color: var(--muted); text-align: center;
+      background: none; border: none; cursor: pointer; font-family: inherit;
+      text-decoration: underline; text-underline-offset: 3px;
+      transition: color 0.2s;
+    }
+    .reset-link:hover { color: var(--accent); }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Flashcards</h1>
+  <p>Click the card to reveal the answer, then rate yourself</p>
+</header>
+
+<!-- Session stats -->
+<div class="stats-bar">
+  <div class="stat total"><span class="stat-val" id="statTotal">0</span><span class="stat-lbl">Total</span></div>
+  <div class="stat good"> <span class="stat-val" id="statGood">0</span><span class="stat-lbl">Known</span></div>
+  <div class="stat again"><span class="stat-val" id="statAgain">0</span><span class="stat-lbl">Again</span></div>
+</div>
+
+<div class="progress-wrap">
+  <div class="progress-bar" id="progressBar" style="width:0%"></div>
+</div>
+
+<!-- Card -->
+<div class="scene" id="scene" onclick="flipCard()">
+  <div class="card" id="card">
+    <div class="face face-front" id="cardFront">
+      <div id="againBadge" class="again-badge" style="display:none">Again</div>
+      <div class="placeholder" id="imagePlaceholder">
+        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+          <rect x="3" y="3" width="18" height="18" rx="3"/>
+          <circle cx="8.5" cy="8.5" r="1.5"/>
+          <polyline points="21 15 16 10 5 21"/>
+        </svg>
+        <span>No image yet</span>
+      </div>
+      <img id="cardImage" src="" alt="" style="display:none"/>
+      <div class="card-label" id="cardLabel">— / —</div>
+    </div>
+    <div class="face face-back">
+      <div class="answer" id="cardAnswer">Add your first card below!</div>
+      <div class="hint">Rate yourself below</div>
+    </div>
+  </div>
+</div>
+
+<!-- Rating buttons -->
+<div class="rating-row" id="ratingRow">
+  <button class="rating-btn btn-again" onclick="rate('again')">Again<small>didn't know</small></button>
+  <button class="rating-btn btn-hard"  onclick="rate('hard')">Hard<small>struggled</small></button>
+  <button class="rating-btn btn-good"  onclick="rate('good')">Good<small>knew it</small></button>
+  <button class="rating-btn btn-easy"  onclick="rate('easy')">Easy<small>too easy</small></button>
+</div>
+
+<!-- Nav controls (shown while rating row is hidden) -->
+<div class="controls" id="navControls">
+  <button class="btn" onclick="navigate(-1)">← Prev</button>
+  <span class="counter" id="counter">0 / 0</span>
+  <button class="btn" onclick="navigate(1)">Next →</button>
+  <button class="btn primary" onclick="flipCard()">Flip</button>
+</div>
+
+<!-- Session complete -->
+<div class="session-complete" id="sessionComplete">
+  <div class="big-num" id="scScore">0%</div>
+  <h2>Session complete!</h2>
+  <p id="scDetail">You reviewed all cards.</p>
+  <button class="btn primary" onclick="restartSession()">Review Again</button>
+  <button class="btn" onclick="reviewAgainOnly()">Review "Again" cards only</button>
+</div>
+
+<!-- Edit toggle -->
+<button class="edit-toggle" onclick="toggleEditor()">✎ Manage cards</button>
+
+<!-- Editor -->
+<div class="editor" id="editor">
+  <h3>Manage Cards</h3>
+
+  <div>
+    <label>Cards in deck</label>
+    <div class="card-list" id="cardList"></div>
+  </div>
+
+  <div>
+    <label>Image filename (front)</label>
+    <input type="text" id="inputImage" placeholder="images/my-photo.jpg"/>
+    <div class="path-hint">
+      Put images in an <code>images/</code> folder in your repo.<br>
+      Then enter just the filename, e.g. <code>images/cat.jpg</code>.<br>
+      You can also paste a full URL: <code>https://…</code>
+    </div>
+  </div>
+
+  <div>
+    <label>Answer text (back)</label>
+    <textarea id="inputAnswer" placeholder="Type the answer shown on the back…"></textarea>
+  </div>
+
+  <div class="editor-row">
+    <button class="btn" onclick="cancelEdit()">Cancel</button>
+    <button class="btn primary" id="saveBtn" onclick="saveCard()">Add card</button>
+  </div>
+
+  <button class="reset-link" onclick="resetAllStats()">Reset all study stats</button>
+</div>
+
+<script>
+// ── Storage keys ──────────────────────────────────────────────────────
+const CARDS_KEY = 'fc_cards_v2';
+const STATS_KEY = 'fc_stats_v2';
+
+// ── Default demo cards ─────────────────────────────────────────────────
+const DEFAULT_CARDS = [
+  {
+    id: uid(),
+    image: "images/image_001.jpg",
+    answer: "מפרשית עושה דרכה במים מבט מלפנים (Sailboat underway, bow view)"
+  },
+  {
+    id: uid(),
+    image: "images/image_002.jpg",
+    answer: "כלי שייט שאורכו מעל 50מ' מוגבל בשל שוקע עושה דרכו במים – מבט מלפנים (Vessel >50m constrained by draught, bow view)"
+  },
+  {
+    id: uid(),
+    image: "images/image_003.jpg",
+    answer: "כלי שייט מוגבל בכושרו לתמרן, מנחה לגבי מכשול בדופן ימין, מבט מאחור (RAM - obstacle starboard side, stern view)"
+  },
+  {
+    id: uid(),
+    image: "images/image_004.jpg",
+    answer: "דייג, מבט מאחור, פורש רשת מצד ימין (Fishing vessel, stern view, nets to starboard)"
+  },
+  {
+    id: uid(),
+    image: "images/image_005.jpg",
+    answer: "צוללת מבט מלפנים (Submarine, bow view)"
+  },
+  {
+    id: uid(),
+    image: "images/image_006.jpg",
+    answer: "כלי שייט גורר וניגרר, אורך המשך פחות מ-200מ', מפליגים שמאלה (Tug & tow <200m, heading left)"
+  },
+  {
+    id: uid(),
+    image: "images/image_007.jpg",
+    answer: "כלי שייט שאורכו פחות מ-50מ' על שרטון (Vessel <50m aground)"
+  },
+  {
+    id: uid(),
+    image: "images/image_008.jpg",
+    answer: "סירת דייג רשתות, מבט מלפנים (Trawler, bow view)"
+  },
+  {
+    id: uid(),
+    image: "images/image_009.jpg",
+    answer: "שולת מוקשים מבט מלפנים (Minesweeper, bow view)"
+  },
+  {
+    id: uid(),
+    image: "images/image_010.jpg",
+    answer: "כלי שייט שיש עליו נתב, מבט מלפנים (Vessel with pilot, bow view)"
+  },
+  {
+    id: uid(),
+    image: "images/image_011.jpg",
+    answer: "כלי שייט גורר וניגרר, אורך המשך פחות מ-200מ', מוגבל בכושרו לתמרן, מפליגים שמאלה (RAM tug & tow <200m, heading left)"
+  },
+  {
+    id: uid(),
+    image: "images/image_012.jpg",
+    answer: "כלי שייט ממוכן שאורכו מעל 50מ', עושה דרכו במים, מפליג שמאלה (Power vessel >50m underway, heading left)"
+  },
+  {
+    id: uid(),
+    image: "images/image_013.jpg",
+    answer: "מפרשית עושה דרכה במים, מפליגה שמאלה (Sailboat underway, heading left)"
+  },
+  {
+    id: uid(),
+    image: "images/image_014.jpg",
+    answer: "מפרשית שאורכה מעל 20מ' עושה דרכה במים, מפליגה ימינה (Sailboat >20m underway, heading right)"
+  },
+  {
+    id: uid(),
+    image: "images/image_015.jpg",
+    answer: "כלי שיט ממוכן שאורכו עד 50מ', עושה דרכו במים, מבט מלפנים (Power vessel ≤50m underway, bow view)"
+  },
+  {
+    id: uid(),
+    image: "images/image_016.jpg",
+    answer: "כלי שייט מהיר, חסר הדחק, עושה דרכו במים, נראה מלפנים (WIG craft underway, bow view)"
+  },
+  {
+    id: uid(),
+    image: "images/image_017.jpg",
+    answer: "כלי שייט גורר וניגרר, מבט מאחור (Tug & tow, stern view)"
+  },
+  {
+    id: uid(),
+    image: "images/image_018.jpg",
+    answer: "כלי שייט מהיר, חסר הדחק, מבט מאחור (WIG craft, stern view)"
+  },
+  {
+    id: uid(),
+    image: "images/image_019.jpg",
+    answer: "מכמורתן עושה דרכו במים, מפליג ימינה (Trawler underway, heading right)"
+  },
+  {
+    id: uid(),
+    image: "images/image_020.jpg",
+    answer: "כלי שייט ללא שליטה, עושה דרכו במים, מבט מאחור (NUC vessel underway, stern view)"
+  },
+  {
+    id: uid(),
+    image: "images/image_021.jpg",
+    answer: "כלי שייט שיש עליו נתב, עושה דרכו במים, מבט מאחור (Vessel with pilot underway, stern view)"
+  },
+  {
+    id: uid(),
+    image: "images/image_022.jpg",
+    answer: "כלי שייט שאורכו מעל 50מ', מוגבל בכושרו לתמרן, מפליג שמאלה (Vessel >50m RAM, heading left)"
+  },
+  {
+    id: uid(),
+    image: "images/image_023.jpg",
+    answer: "כלי שייט גורר המוגבל בכושרו לתמרן וניגרר, מבט מאחור (RAM tug & tow, stern view)"
+  },
+  {
+    id: uid(),
+    image: "images/image_024.jpg",
+    answer: "מפרשית שאורכה מעל 20מ', מפליגה שמאלה (Sailboat >20m, heading left)"
+  },
+  {
+    id: uid(),
+    image: "images/image_025.jpg",
+    answer: "כלי שייט ממוכן שאורכו מעל 50מ', מוגבל בשל שוקע, מפליג ימינה (Power vessel >50m constrained by draught, heading right)"
+  },
+  {
+    id: uid(),
+    image: "images/image_026.jpg",
+    answer: "מחפר עם אורות הכוונה לגבי המצאות מכשול (Dredger with obstacle lights)"
+  },
+  {
+    id: uid(),
+    image: "images/image_027.jpg",
+    answer: "אור ירכתיים / כלי שייט קטן מ-7מ' ו-7קשר / כלי שייט עוגן / סירת משוטים (Sternlight / small vessel / anchored vessel / rowboat)"
+  },
+  {
+    id: uid(),
+    image: "images/image_028.jpg",
+    answer: "כלי שייט גורר שאורכו מעל 50מ' ואורך המשך לנגרר פחות מ-200מ', מבט מלפנים (Tug >50m, tow <200m, bow view)"
+  },
+  {
+    id: uid(),
+    image: "images/image_029.jpg",
+    answer: "מכמורתן, פורש רשתות מצד שמאל, מבט מאחור (Trawler, nets to port, stern view)"
+  },
+  {
+    id: uid(),
+    image: "images/image_030.jpg",
+    answer: "כלי שייט ממוכן שאורכו קטן מ-50מ', מפליג שמאלה (Power vessel <50m, heading left)"
+  },
+  {
+    id: uid(),
+    image: "images/image_031.jpg",
+    answer: "שולת מוקשים, מפליגה ימינה (Minesweeper, heading right)"
+  },
+  {
+    id: uid(),
+    image: "images/image_032.jpg",
+    answer: "שולת מוקשים, מבט מאחור (Minesweeper, stern view)"
+  },
+  {
+    id: uid(),
+    image: "images/image_033.jpg",
+    answer: "כלי שייט ללא שליטה, מפליג שמאלה (NUC vessel, heading left)"
+  },
+  {
+    id: uid(),
+    image: "images/image_034.jpg",
+    answer: "כלי שיט שיש עליו נתב, מפליג ימינה (Vessel with pilot, heading right)"
+  },
+  {
+    id: uid(),
+    image: "images/image_035.jpg",
+    answer: "כלי שייט מוגבל בכושרו לתמרן, עושה דרכו במים, מבט מלפנים (RAM vessel underway, bow view)"
+  },
+  {
+    id: uid(),
+    image: "images/image_036.jpg",
+    answer: "כלי שייט ממוכן שאורכו מעל 50מ', מבט מלפנים (Power vessel >50m, bow view)"
+  },
+  {
+    id: uid(),
+    image: "images/image_037.jpg",
+    answer: "מפרשית שאורכה מעל 20מ' עושה דרכה במים, מבט מאחור (Sailboat >20m underway, stern view)"
+  },
+  {
+    id: uid(),
+    image: "images/image_038.jpg",
+    answer: "כלי שייט מוגבל בשל שוקע, עושה דרכו במים, מבט מאחור (Vessel constrained by draught underway, stern view)"
+  },
+  {
+    id: uid(),
+    image: "images/image_039.jpg",
+    answer: "כלי שייט שאורכו מעל 50מ', על שרטון (Vessel >50m aground)"
+  },
+  {
+    id: uid(),
+    image: "images/image_040.jpg",
+    answer: "כלי שייט מהיר, חסר הדחק, מפליג ימינה (WIG craft, heading right)"
+  },
+  {
+    id: uid(),
+    image: "images/image_041.jpg",
+    answer: "צוללת מפליגה ימינה (Submarine, heading right)"
+  },
+  {
+    id: uid(),
+    image: "images/image_042.jpg",
+    answer: "כלי שייט מוגבל בכושרו לתמרן, מבט מאחור (RAM vessel, stern view)"
+  },
+  {
+    id: uid(),
+    image: "images/image_043.jpg",
+    answer: "כלי שייט ממוכן שאורכו עד 50מ', מפליג ימינה (Power vessel ≤50m, heading right)"
+  },
+  {
+    id: uid(),
+    image: "images/image_044.jpg",
+    answer: "מכמורתן בעבודה, מפליג שמאלה (Trawler working, heading left)"
+  },
+  {
+    id: uid(),
+    image: "images/image_045.jpg",
+    answer: "כלי שייט ללא שליטה, עושה דרכו במים, מפליג ימינה (NUC vessel underway, heading right)"
+  },
+  {
+    id: uid(),
+    image: "images/image_046.jpg",
+    answer: "כלי שייט שיש עליו נתב, מפליג שמאלה (Vessel with pilot, heading left)"
+  },
+  {
+    id: uid(),
+    image: "images/image_047.jpg",
+    answer: "כלי שייט גורר שאורך המשך מעל 200מ', מוגבל בכושרו לתמרן, מבט מלפנים (RAM tug, tow >200m, bow view)"
+  },
+  {
+    id: uid(),
+    image: "images/image_048.jpg",
+    answer: "מפרשית מפליגה ימינה (Sailboat, heading right)"
+  },
+  {
+    id: uid(),
+    image: "images/image_049.jpg",
+    answer: "כלי שייט ממוכן שאורכו מעל 50מ', מוגבל בשל שוקע, מפליג שמאלה (Power vessel >50m constrained by draught, heading left)"
+  },
+  {
+    id: uid(),
+    image: "images/image_050.jpg",
+    answer: "כלי שייט מוגבל בכושרו לתמרן, מצביע על מכשול בצד שמאל, מבט מלפנים (RAM vessel - obstacle port side, bow view)"
+  },
+  {
+    id: uid(),
+    image: "images/image_051.jpg",
+    answer: "כלי שיט עוסק בדייג רשתות, מפליג ימינה (Trawler, heading right)"
+  },
+  {
+    id: uid(),
+    image: "images/image_052.jpg",
+    answer: "צוללת מפליגה שמאלה (Submarine, heading left)"
+  },
+  {
+    id: uid(),
+    image: "images/image_053.jpg",
+    answer: "כלי שייט גורר עם נגרר, אורך המשך פחות מ-200מ', מפליגים ימינה (Tug & tow <200m, heading right)"
+  },
+  {
+    id: uid(),
+    image: "images/image_054.jpg",
+    answer: "מחפר מוגבל בכושרו לתמרן, נראה מדופן ימין, עם סימון מכשול (Dredger RAM, starboard view, obstacle marked)"
+  },
+  {
+    id: uid(),
+    image: "images/image_055.jpg",
+    answer: "כלי שייט עוסק בדייג רשתות, מפליג שמאלה (Trawler, heading left)"
+  },
+  {
+    id: uid(),
+    image: "images/image_056.jpg",
+    answer: "שולת מוקשים, מפליגה שמאלה (Minesweeper, heading left)"
+  },
+  {
+    id: uid(),
+    image: "images/image_057.jpg",
+    answer: "כלי שיט ללא שליטה שיש עליו נתב, מפליג שמאלה (NUC vessel with pilot, heading left)"
+  },
+  {
+    id: uid(),
+    image: "images/image_058.jpg",
+    answer: "מפרשית שאורכה מעל 20מ' עושה דרכה במים, מבט מלפנים (Sailboat >20m underway, bow view)"
+  },
+  {
+    id: uid(),
+    image: "images/image_059.jpg",
+    answer: "כלי שייט גורר ונגרר, משך קטן מ-200מ', מוגבל בכושרו לתמרן, מפליגים ימינה (RAM tug & tow <200m, heading right)"
+  },
+  {
+    id: uid(),
+    image: "images/image_060.jpg",
+    answer: "כלי שייט גורר וניגרר, אורך המשך מעל 200מ', מפליג שמאלה (Tug & tow >200m, heading left)"
+  },
+  {
+    id: uid(),
+    image: "images/image_061.jpg",
+    answer: "כלי שייט שאורכו מעל 50מ', עוגן, דופן ימין (Vessel >50m anchored, starboard side)"
+  },
+  {
+    id: uid(),
+    image: "images/image_062.jpg",
+    answer: "כלי שייט מהיר, חסר הדחק, מפליג שמאלה (WIG craft, heading left)"
+  },
+  {
+    id: uid(),
+    image: "images/image_063.jpg",
+    answer: "כלי שייט הדוחף כלי שייט אחר בצדו השמאלי, מבט מלפנים (Vessel pushing another to port side, bow view)"
+  },
+  {
+    id: uid(),
+    image: "images/image_064.jpg",
+    answer: "מכמורתן בעבודה, עושה דרכו במים, מבט מלפנים (Trawler working underway, bow view)"
+  },
+  {
+    id: uid(),
+    image: "images/image_065.jpg",
+    answer: "מחפר עושה דרכו במים, מבט לדופן שמאל, עם הכוונה למעבר בטוח (Dredger underway, port side view, safe passage port side)"
+  },
+  {
+    id: uid(),
+    image: "images/image_066.jpg",
+    answer: "כלי שייט ללא שליטה, עושה דרכו במים, מבט מלפנים (NUC vessel underway, bow view)"
+  },
+  {
+    id: uid(),
+    image: "images/image_067.jpg",
+    answer: "כלי שייט שאורכו מעל 50מ', מוגבל בכושרו לתמרן, מפליג ימינה (Vessel >50m RAM, heading right)"
+  },
+  {
+    id: uid(),
+    image: "images/image_068.jpg",
+    answer: "שולת מוקשים עם שליה מצד שמאל (Minesweeper with sweep to port)"
+  },
+  {
+    id: uid(),
+    image: "images/image_069.jpg",
+    answer: "כלי שייט ממוכן שאורכו מעל 50מ', מפליג ימינה (Power vessel >50m, heading right)"
+  },
+  {
+    id: uid(),
+    image: "images/image_070.jpg",
+    answer: "כלי שייט עוסק בצלילה / עבודות תת-מימיות (Vessel engaged in diving / underwater operations)"
+  },
+  {
+    id: uid(),
+    image: "images/image_071.jpg",
+    answer: "אורות סימון כניסה למעגנה/נמל (Marina/port entry lights)"
+  },
+  {
+    id: uid(),
+    image: "images/image_072.jpg",
+    answer: "כלי שייט גורר וניגרר, אורך המשך מעל 200מ', מפליגים ימינה (Tug & tow >200m, heading right)"
+  },
+  {
+    id: uid(),
+    image: "images/image_073.jpg",
+    answer: "סימון אזהרת מצב ים קשה ביציאה מנמל – בופור 5 ומעלה (Rough sea warning at port exit - Beaufort 5+)"
+  },
+  {
+    id: uid(),
+    image: "images/image_074.jpg",
+    answer: "אורות סימון יציאה למעגנה/נמל (Marina/port exit lights)"
+  },
+  {
+    id: uid(),
+    image: "images/image_075.jpg",
+    answer: "כלי שייט המוגבל בשל שוקע – סמל יום: גליל (Vessel constrained by draught - day shape: cylinder)"
+  },
+  {
+    id: uid(),
+    image: "images/image_076.jpg",
+    answer: "שולת מוקשים בפעולה עם שליה משני צידיה (Minesweeper with sweep on both sides)"
+  },
+  {
+    id: uid(),
+    image: "images/image_077.jpg",
+    answer: "כלי שייט עוגן / אזהרה מטאורולוגית ביציאה מנמל (Vessel at anchor / meteorological warning)"
+  },
+  {
+    id: uid(),
+    image: "images/image_078.jpg",
+    answer: "כלי שייט גורר המוגבל בכושרו לתמרן – סמלי יום (RAM towing vessel - day shapes)"
+  },
+  {
+    id: uid(),
+    image: "images/image_079.jpg",
+    answer: "כלי שייט המוגבל בכושרו לתמרן – סמלי יום (RAM vessel - day shapes)"
+  },
+  {
+    id: uid(),
+    image: "images/image_080.jpg",
+    answer: "כלי שייט ללא שליטה – סמלי יום (NUC vessel - day shapes)"
+  },
+  {
+    id: uid(),
+    image: "images/image_081.jpg",
+    answer: "כלי שייט על שרטון – סמלי יום (Vessel aground - day shapes)"
+  },
+  {
+    id: uid(),
+    image: "images/image_082.jpg",
+    answer: "מפרשית המפליגה בעזרת מנוע – חרוט (Sailing vessel using engine - cone day shape)"
+  },
+  {
+    id: uid(),
+    image: "images/image_083.jpg",
+    answer: "נמצא במצוקה, מבקש עזרה!!! – כדור מעל ריבוע (Vessel in distress seeking assistance)"
+  },
+  {
+    id: uid(),
+    image: "images/image_084.jpg",
+    answer: "כלי שייט מכמורתן בעבודתו – סמלי יום (Trawler at work - day shapes)"
+  },
+  {
+    id: uid(),
+    image: "images/image_085.jpg",
+    answer: "ספינת דייג רשתות, ציוד מעל 150מ' אופקית – סמלי יום (Trawler, gear >150m horizontal - day shapes)"
+  },
+  {
+    id: uid(),
+    image: "images/image_086.jpg",
+    answer: "כלי שייט גורר, אורך המשך לנגרר מעל 200מ' – סמל יום: מעויין (Towing vessel, tow >200m - diamond day shape)"
+  },
+  {
+    id: uid(),
+    image: "images/image_087.jpg",
+    answer: "כלי שייט/מחפר מוגבל בכושרו לתמרן – מכשול וכיוון מעבר בטוח משני הצדדים (RAM/Dredger - obstacle & safe passage both sides)"
+  },
+  {
+    id: uid(),
+    image: "images/image_088.jpg",
+    answer: "כלי שייט/מחפר מוגבל בכושרו לתמרן – צד מעבר בטוח (RAM/Dredger - safe passage side indicated with diamonds)"
+  },
+  {
+    id: uid(),
+    image: "images/image_089.jpg",
+    answer: "כלי שייט/מחפר מוגבל בכושרו לתמרן – צד מכשול (RAM/Dredger - obstacle side marked with balls)"
+  },
+  {
+    id: uid(),
+    image: "images/image_090.jpg",
+    answer: "כלי שייט/מחפר מוגבל בכושרו לתמרן – צד מכשול (RAM/Dredger - obstacle side marked with balls)"
+  },
+  {
+    id: uid(),
+    image: "images/image_091.jpg",
+    answer: "דגל U – זהירות, הנך מתקדם לקראת סכנה (Flag U - You are standing into danger)"
+  },
+  {
+    id: uid(),
+    image: "images/image_092.jpg",
+    answer: "דגל N – לא/שלילי (Flag N - No / Negative)"
+  },
+  {
+    id: uid(),
+    image: "images/image_093.jpg",
+    answer: "דגל C – כן/חיובי (Flag C - Yes / Affirmative)"
+  },
+  {
+    id: uid(),
+    image: "images/image_094.jpg",
+    answer: "דגל T – התרחק ממני, עסוק בגרירת מכמורת זוגית (Flag T - Keep clear, engaged in pair trawling)"
+  },
+  {
+    id: uid(),
+    image: "images/image_095.jpg",
+    answer: "דגל B – אני טוען, פורק או נושא חומרים מסוכנים (Flag B - I am taking on, discharging or carrying dangerous goods)"
+  },
+  {
+    id: uid(),
+    image: "images/image_096.jpg",
+    answer: "דגל S – מכונותי פועלות לאחור (Flag S - My engines are going full speed astern)"
+  },
+  {
+    id: uid(),
+    image: "images/image_097.jpg",
+    answer: "דגל G – מבקש נתב (Flag G - I require a pilot)"
+  },
+  {
+    id: uid(),
+    image: "images/image_098.jpg",
+    answer: "דגל A – עוסק בצלילה, התרחק בזהירות (Flag A - I have a diver down, keep clear at slow speed)"
+  },
+  {
+    id: uid(),
+    image: "images/image_099.jpg",
+    answer: "דגל K – מבקש להתקשר איתך (Flag K - I wish to communicate with you)"
+  },
+  {
+    id: uid(),
+    image: "images/image_100.jpg",
+    answer: "דגל H – יש נתב באנייתי (Flag H - I have a pilot on board)"
+  },
+  {
+    id: uid(),
+    image: "images/image_101.jpg",
+    answer: "דגל L – עליך לעצור ספינתך מייד (Flag L - You should stop your vessel immediately)"
+  },
+  {
+    id: uid(),
+    image: "images/image_102.jpg",
+    answer: "דגל D – התרחק ממני, אני מתמרן בקושי (Flag D - Keep clear of me, I am maneuvering with difficulty)"
+  },
+  {
+    id: uid(),
+    image: "images/image_103.jpg",
+    answer: "דגל I – אני משנה אורחי לשמאל (Flag I - I am altering my course to port)"
+  },
+  {
+    id: uid(),
+    image: "images/image_104.jpg",
+    answer: "דגל O – אדם בים (Flag O - Man overboard)"
+  },
+  {
+    id: uid(),
+    image: "images/image_105.jpg",
+    answer: "דגל E – אני משנה אורחי לימין (Flag E - I am altering my course to starboard)"
+  },
+  {
+    id: uid(),
+    image: "images/image_106.jpg",
+    answer: "דגל Q – ספינתי בריאה, מבקש רשות פעולה חופשית בנמל (Flag Q - My vessel is healthy, I request free pratique)"
+  },
+  {
+    id: uid(),
+    image: "images/image_107.jpg",
+    answer: "דגל X – הפסק פעולתך ושים לב לשידורי (Flag X - Stop carrying out your intentions and watch for my signals)"
+  },
+  {
+    id: uid(),
+    image: "images/image_108.jpg",
+    answer: "דגל P – כל האנשים לחזור לספינה / רשתותיי נתפסו במכשול (Flag P - All persons report on board / Nets fast on obstruction)"
+  },
+  {
+    id: uid(),
+    image: "images/image_109.jpg",
+    answer: "דגל F – אני בצרה, התקשר איתי (Flag F - I am disabled, communicate with me)"
+  },
+  {
+    id: uid(),
+    image: "images/image_110.jpg",
+    answer: "דגל V – אני מבקש עזרה (ללא מצוקה) (Flag V - I require assistance)"
+  },
+  {
+    id: uid(),
+    image: "images/image_111.jpg",
+    answer: "1 צפצוף קצר – אני משנה אורחי לימין (1 short blast - I am altering my course to starboard)"
+  },
+  {
+    id: uid(),
+    image: "images/image_112.jpg",
+    answer: "1 צפצוף ארוך – כלי שייט ממוכן עושה דרכו בראות מוגבלת (1 long blast - Power vessel underway in restricted visibility)"
+  },
+  {
+    id: uid(),
+    image: "images/image_113.jpg",
+    answer: "3 צפצופים קצרים – מכונותי פועלות לאחור (3 short blasts - My engines are going astern)"
+  },
+  {
+    id: uid(),
+    image: "images/image_114.jpg",
+    answer: "2 צפצופים קצרים – אני משנה אורחי לשמאל (2 short blasts - I am altering my course to port)"
+  },
+  {
+    id: uid(),
+    image: "images/image_115.jpg",
+    answer: "5+ צפצופים קצרים – אות ספק (5+ short blasts - I am in doubt about your intentions)"
+  },
+  {
+    id: uid(),
+    image: "images/image_116.jpg",
+    answer: "2 ארוכים + 2 קצרים – מתכוון להשיג אותך ולעבור בצדך השמאלי (2 long + 2 short - I intend to overtake you on your port side)"
+  },
+  {
+    id: uid(),
+    image: "images/image_117.jpg",
+    answer: "2 ארוכים + 1 קצר + 1 ארוך + 1 קצר – מסכים לבקשתך להשיג אותי (Agreement to overtaking signal)"
+  },
+  {
+    id: uid(),
+    image: "images/image_118.jpg",
+    answer: "2 צפצופים ארוכים – כלי שייט ממוכן עצר, אינו עושה דרכו בראות מוגבלת (2 long blasts - Power vessel stopped, not underway in restricted visibility)"
+  },
+  {
+    id: uid(),
+    image: "images/image_119.jpg",
+    answer: "צפצוף ממושך – אני במצוקה, מבקש עזרה מיידית!!! (Continuous blasts - Vessel in distress requesting immediate assistance)"
+  },
+  {
+    id: uid(),
+    image: "images/image_120.jpg",
+    answer: "1 ארוך + 2 קצרים – טוען/נושא/פורק מטענים מסוכנים / נגרר (1 long + 2 short - Dangerous cargo / vessel being towed)"
+  },
+  {
+    id: uid(),
+    image: "images/image_121.jpg",
+    answer: "2 ארוכים + 1 קצר – מתכוון להשיג אותך ולעבור בצדך הימני (2 long + 1 short - I intend to overtake you on your starboard side)"
+  },
+  {
+    id: uid(),
+    image: "images/image_122.jpg",
+    answer: "1 ארוך + 2 קצרים – כלי שייט מוגבל/NUC/מפרשית/גוררת בראות מוגבלת (1 long + 2 short - RAM/CBD/NUC/Sailing/Towing in restricted visibility)"
+  },
+  {
+    id: uid(),
+    image: "images/image_123.jpg",
+    answer: "מסיח (Diversion/attention signal)"
+  },
+  {
+    id: uid(),
+    image: "images/image_124.jpg",
+    answer: "מסיח (Diversion/attention signal)"
+  },
+  {
+    id: uid(),
+    image: "images/image_125.jpg",
+    answer: "מסיח (Diversion/attention signal)"
+  },
+  {
+    id: uid(),
+    image: "images/image_126.jpg",
+    answer: "מסיח (Diversion/attention signal)"
+  }
+];
+
+// ── State ──────────────────────────────────────────────────────────────
+let cards = [];       // master card list [{id, image, answer}]
+let stats = {};       // {id: {correct, incorrect, lastRating}}
+let queue = [];       // ordered list of card ids for this session
+let queuePos = 0;     // current index into queue
+let isFlipped = false;
+
+// session counters (reset each session)
+let sessionGood  = 0;
+let sessionAgain = 0;
+let sessionTotal = 0;
+
+function uid() {
+  return Math.random().toString(36).slice(2, 10);
+}
+
+// ── Persistence ─────────────────────────────────────────────────────────
+function loadData() {
+  try {
+    const c = localStorage.getItem(CARDS_KEY);
+    cards = c ? JSON.parse(c) : JSON.parse(JSON.stringify(DEFAULT_CARDS));
+    // ensure ids
+    cards.forEach(c => { if (!c.id) c.id = uid(); });
+  } catch(e) { cards = JSON.parse(JSON.stringify(DEFAULT_CARDS)); }
+
+  try {
+    const s = localStorage.getItem(STATS_KEY);
+    stats = s ? JSON.parse(s) : {};
+  } catch(e) { stats = {}; }
+}
+
+function saveCards() {
+  localStorage.setItem(CARDS_KEY, JSON.stringify(cards));
+}
+function saveStats() {
+  localStorage.setItem(STATS_KEY, JSON.stringify(stats));
+}
+
+function getStats(id) {
+  if (!stats[id]) stats[id] = { correct: 0, incorrect: 0, lastRating: null };
+  return stats[id];
+}
+
+// ── Session / Queue ─────────────────────────────────────────────────────
+function buildQueue() {
+  // Prioritise cards marked 'again' last session, then shuffle the rest
+  const againIds = cards.filter(c => getStats(c.id).lastRating === 'again').map(c => c.id);
+  const otherIds = cards.filter(c => getStats(c.id).lastRating !== 'again').map(c => c.id);
+  queue = [...shuffle(otherIds), ...shuffle(againIds)];
+  queuePos = 0;
+  sessionGood = sessionAgain = sessionTotal = 0;
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function currentCard() {
+  if (queue.length === 0) return null;
+  return cards.find(c => c.id === queue[queuePos]) || null;
+}
+
+// ── Rating ──────────────────────────────────────────────────────────────
+function rate(rating) {
+  const c = currentCard();
+  if (!c) return;
+
+  const s = getStats(c.id);
+  s.lastRating = rating;
+
+  if (rating === 'again' || rating === 'hard') {
+    s.incorrect++;
+    sessionAgain++;
+    // Requeue at a random spot later in the remaining queue
+    const remaining = queue.length - queuePos - 1;
+    if (remaining > 0) {
+      const insertAt = queuePos + 1 + Math.floor(Math.random() * remaining);
+      queue.splice(insertAt, 0, c.id);
+    } else {
+      queue.push(c.id);
+    }
+  } else {
+    s.correct++;
+    sessionGood++;
+  }
+
+  sessionTotal++;
+  saveStats();
+  updateStats();
+  advance();
+}
+
+function advance() {
+  queuePos++;
+  if (queuePos >= queue.length) {
+    showSessionComplete();
+    return;
+  }
+  isFlipped = false;
+  document.getElementById('card').classList.remove('flipped');
+  showRatingRow(false);
+  render();
+}
+
+// ── Navigation (manual prev/next without rating) ─────────────────────
+function navigate(dir) {
+  if (queue.length === 0) return;
+  queuePos = Math.max(0, Math.min(queue.length - 1, queuePos + dir));
+  isFlipped = false;
+  document.getElementById('card').classList.remove('flipped');
+  showRatingRow(false);
+  render();
+}
+
+function flipCard() {
+  if (queue.length === 0) return;
+  isFlipped = !isFlipped;
+  document.getElementById('card').classList.toggle('flipped', isFlipped);
+  showRatingRow(isFlipped);
+}
+
+function showRatingRow(visible) {
+  document.getElementById('ratingRow').classList.toggle('visible', visible);
+  document.getElementById('navControls').style.display = visible ? 'none' : 'flex';
+}
+
+// ── Render ──────────────────────────────────────────────────────────────
+function render() {
+  const c = currentCard();
+
+  if (!c || queue.length === 0) {
+    document.getElementById('cardImage').style.display = 'none';
+    document.getElementById('imagePlaceholder').style.display = 'flex';
+    document.getElementById('cardAnswer').textContent = 'Add cards below to get started!';
+    document.getElementById('cardLabel').textContent = '— / —';
+    document.getElementById('counter').textContent = '0 / 0';
+    document.getElementById('progressBar').style.width = '0%';
+    document.getElementById('againBadge').style.display = 'none';
+    return;
+  }
+
+  // image
+  const img  = document.getElementById('cardImage');
+  const ph   = document.getElementById('imagePlaceholder');
+  if (c.image) {
+    img.src = c.image; img.style.display = 'block'; ph.style.display = 'none';
+  } else {
+    img.style.display = 'none'; ph.style.display = 'flex';
+  }
+
+  // "Again" badge
+  const s = getStats(c.id);
+  document.getElementById('againBadge').style.display = s.lastRating === 'again' ? 'block' : 'none';
+
+  // labels
+  const pos   = queuePos + 1;
+  const total = queue.length;
+  document.getElementById('cardLabel').textContent  = `Card ${pos} of ${total}`;
+  document.getElementById('counter').textContent    = `${pos} / ${total}`;
+  document.getElementById('cardAnswer').textContent = c.answer || '(no answer)';
+  document.getElementById('progressBar').style.width = `${(pos / total) * 100}%`;
+}
+
+function updateStats() {
+  document.getElementById('statTotal').textContent = sessionTotal;
+  document.getElementById('statGood').textContent  = sessionGood;
+  document.getElementById('statAgain').textContent = sessionAgain;
+}
+
+// ── Session complete ─────────────────────────────────────────────────────
+function showSessionComplete() {
+  document.getElementById('scene').style.display         = 'none';
+  document.getElementById('ratingRow').style.display     = 'none';
+  document.getElementById('navControls').style.display   = 'none';
+  document.getElementById('sessionComplete').style.display = 'flex';
+
+  const pct = sessionTotal > 0 ? Math.round((sessionGood / sessionTotal) * 100) : 0;
+  document.getElementById('scScore').textContent = pct + '%';
+
+  const againCount = cards.filter(c => getStats(c.id).lastRating === 'again').length;
+  document.getElementById('scDetail').textContent =
+    `You rated ${sessionGood} card${sessionGood !== 1 ? 's' : ''} as known. ` +
+    (againCount > 0 ? `${againCount} card${againCount !== 1 ? 's' : ''} marked for review.` : 'Great job — no cards to review!');
+
+  // hide "Review Again" button if no again cards
+  document.querySelector('.session-complete .btn:last-child').style.display =
+    againCount > 0 ? 'block' : 'none';
+}
+
+function restartSession() {
+  document.getElementById('scene').style.display         = 'flex';
+  document.getElementById('navControls').style.display   = 'flex';
+  document.getElementById('sessionComplete').style.display = 'none';
+  document.getElementById('ratingRow').style.display     = 'flex';
+  buildQueue();
+  updateStats();
+  render();
+  showRatingRow(false);
+}
+
+function reviewAgainOnly() {
+  // only keep cards rated 'again'
+  queue = cards.filter(c => getStats(c.id).lastRating === 'again').map(c => c.id);
+  queue = shuffle(queue);
+  queuePos = 0;
+  sessionGood = sessionAgain = sessionTotal = 0;
+
+  document.getElementById('scene').style.display         = 'flex';
+  document.getElementById('navControls').style.display   = 'flex';
+  document.getElementById('sessionComplete').style.display = 'none';
+  document.getElementById('ratingRow').style.display     = 'flex';
+
+  updateStats();
+  render();
+  showRatingRow(false);
+}
+
+// ── Editor ────────────────────────────────────────────────────────────────
+let editingIndex = -1;
+
+function toggleEditor() {
+  const ed = document.getElementById('editor');
+  ed.classList.toggle('open');
+  if (ed.classList.contains('open')) renderList();
+}
+
+function renderList() {
+  const list = document.getElementById('cardList');
+  if (cards.length === 0) {
+    list.innerHTML = '<div style="font-size:0.78rem;color:var(--muted);text-align:center;padding:0.5rem">No cards yet.</div>';
+    return;
+  }
+  list.innerHTML = cards.map((c, i) => {
+    const s = getStats(c.id);
+    const total = s.correct + s.incorrect;
+    const pct   = total > 0 ? Math.round((s.correct / total) * 100) : null;
+    const scoreHtml = pct !== null
+      ? `<span class="ci-score ${pct < 50 ? 'bad' : ''}">${pct}%</span>`
+      : '';
+    return `
+      <div class="card-item ${i === editingIndex ? 'selected' : ''}" onclick="selectForEdit(${i})">
+        <span class="ci-img">${c.image ? '🖼' : '—'}</span>
+        <span class="ci-answer">${c.answer || '(no answer)'}</span>
+        ${scoreHtml}
+        <button class="del" onclick="event.stopPropagation();deleteCard(${i})" title="Delete">✕</button>
+      </div>`;
+  }).join('');
+}
+
+function selectForEdit(i) {
+  editingIndex = i;
+  document.getElementById('inputImage').value  = cards[i].image  || '';
+  document.getElementById('inputAnswer').value = cards[i].answer || '';
+  document.getElementById('saveBtn').textContent = 'Update card';
+  renderList();
+}
+
+function cancelEdit() {
+  editingIndex = -1;
+  document.getElementById('inputImage').value  = '';
+  document.getElementById('inputAnswer').value = '';
+  document.getElementById('saveBtn').textContent = 'Add card';
+  renderList();
+}
+
+function saveCard() {
+  const image  = document.getElementById('inputImage').value.trim();
+  const answer = document.getElementById('inputAnswer').value.trim();
+  if (!image && !answer) return;
+
+  if (editingIndex >= 0) {
+    cards[editingIndex].image  = image;
+    cards[editingIndex].answer = answer;
+  } else {
+    cards.push({ id: uid(), image, answer });
+  }
+
+  saveCards();
+  cancelEdit();
+  buildQueue();
+  render();
+}
+
+function deleteCard(i) {
+  const id = cards[i].id;
+  cards.splice(i, 1);
+  delete stats[id];
+  if (editingIndex === i) cancelEdit();
+  saveCards();
+  saveStats();
+  buildQueue();
+  render();
+  renderList();
+}
+
+function resetAllStats() {
+  if (!confirm('Reset all study statistics?')) return;
+  stats = {};
+  saveStats();
+  buildQueue();
+  sessionGood = sessionAgain = sessionTotal = 0;
+  updateStats();
+  render();
+  renderList();
+}
+
+// ── Keyboard shortcuts ────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (['INPUT','TEXTAREA'].includes(document.activeElement.tagName)) return;
+  if (e.key === 'ArrowLeft')  navigate(-1);
+  if (e.key === 'ArrowRight') navigate(1);
+  if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); flipCard(); }
+  // 1-4 to rate
+  if (isFlipped) {
+    if (e.key === '1') rate('again');
+    if (e.key === '2') rate('hard');
+    if (e.key === '3') rate('good');
+    if (e.key === '4') rate('easy');
+  }
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────
+loadData();
+buildQueue();
+updateStats();
+render();
+showRatingRow(false);
+</script>
+</body>
+</html>
